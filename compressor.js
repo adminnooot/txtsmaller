@@ -111,8 +111,8 @@ async function cleanContentAsync(text, onProgress) {
   // 8. Decode quoted-printable artifacts
   text = text.replace(/=\r?\n/g, '');
   text = text.replace(/=([0-9A-Fa-f]{2})/g, function (_m, hex) {
-    var code = parseInt(hex, 16);
-    if (code >= 0x20 && code <= 0x7E) return String.fromCharCode(code);
+    const charCode = parseInt(hex, 16);
+    if (charCode >= 0x20 && charCode <= 0x7E) return String.fromCharCode(charCode);
     return '';
   });
   report(); await yieldToUI();
@@ -228,9 +228,7 @@ async function extractPatternsAsync(text, onProgress) {
     }
   }
 
-  patterns.sort(function (a, b) {
-    return (b.pattern.length * b.count) - (a.pattern.length * a.count);
-  });
+  patterns.sort((a, b) => (b.pattern.length * b.count) - (a.pattern.length * a.count));
 
   if (onProgress) onProgress('Patterns ready', 1);
   return patterns;

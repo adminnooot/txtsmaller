@@ -88,7 +88,7 @@
 
     reader.onprogress = function (e) {
       if (e.lengthComputable) {
-        var pct = Math.round((e.loaded / e.total) * 10); // reading is 0-10%
+        const pct = Math.round((e.loaded / e.total) * 10); // reading is 0-10%
         showProgress('Reading file…', pct, formatBytes(e.loaded) + ' of ' + formatBytes(e.total) + ' loaded');
       }
     };
@@ -139,7 +139,7 @@
     try {
       // Map compressor progress (0-100) to our display (10-100, since 0-10 was file reading)
       currentResult = await compressTextAsync(rawText, function (stage, pct, detail) {
-        var displayPct = 10 + Math.round(pct * 0.9);
+        const displayPct = 10 + Math.round(pct * 0.9);
         showProgress(stage, displayPct, detail);
       });
 
@@ -165,8 +165,8 @@
 
   /* ── Split Slider ──────────────────────────────── */
   splitRange.addEventListener('input', function () {
-    var v = splitRange.value;
-    splitValue.textContent = v === '1' ? '1 file' : v + ' files';
+    const count = splitRange.value;
+    splitValue.textContent = count === '1' ? '1 file' : count + ' files';
     updateSplitPreview();
     renderFileCards();
   });
@@ -174,8 +174,8 @@
   function updateSplitPreview() {
     if (!currentResult) return;
 
-    var splitCount = parseInt(splitRange.value, 10);
-    var baseName = (fileName.textContent || 'output').replace(/\.[^.]+$/, '');
+    const splitCount = parseInt(splitRange.value, 10);
+    const baseName = (fileName.textContent || 'output').replace(/\.[^.]+$/, '');
     currentFiles = splitText(currentResult.compressed, splitCount, baseName);
 
     if (currentFiles.length === 1) {
@@ -183,9 +183,9 @@
       splitEachWords.textContent = currentFiles[0].words.toLocaleString();
     } else {
       // Show average
-      var totalSize = 0;
-      var totalWords = 0;
-      for (var i = 0; i < currentFiles.length; i++) {
+      let totalSize = 0;
+      let totalWords = 0;
+      for (let i = 0; i < currentFiles.length; i++) {
         totalSize += currentFiles[i].size;
         totalWords += currentFiles[i].words;
       }
@@ -196,7 +196,7 @@
 
   /* ── Render Stats ──────────────────────────────── */
   function renderStats() {
-    var s = currentResult.stats;
+    const s = currentResult.stats;
 
     statOriginal.textContent   = formatBytes(s.originalSize);
     statCompressed.textContent = formatBytes(s.compressedSize);
@@ -229,7 +229,7 @@
 
     filesGrid.innerHTML = '';
     currentFiles.forEach(function (file, idx) {
-      var card = document.createElement('div');
+      const card = document.createElement('div');
       card.className = 'file-card';
       card.innerHTML =
         '<h3>' + escapeHtml(file.name) + '</h3>' +
@@ -243,7 +243,7 @@
 
     filesGrid.querySelectorAll('.download-single').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var i = parseInt(btn.dataset.index, 10);
+        const i = parseInt(btn.dataset.index, 10);
         downloadFile(currentFiles[i].name, currentFiles[i].content);
       });
     });
@@ -260,20 +260,22 @@
 
     if (typeof JSZip === 'undefined') {
       alert('Zip packaging is unavailable. Files will be downloaded individually.');
-      downloadFile('code_dictionary.txt', currentResult.dictionaryText);
+      if (currentResult.stats.codesUsed > 0) {
+        downloadFile('code_dictionary.txt', currentResult.dictionaryText);
+      }
       currentFiles.forEach(function (f) { downloadFile(f.name, f.content); });
       return;
     }
 
-    var zip = new JSZip();
+    const zip = new JSZip();
     if (currentResult.stats.codesUsed > 0) {
       zip.file('code_dictionary.txt', currentResult.dictionaryText);
     }
     currentFiles.forEach(function (f) { zip.file(f.name, f.content); });
 
-    var blob = await zip.generateAsync({ type: 'blob' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url;
     a.download = 'txtsmaller_output.zip';
     document.body.appendChild(a);
@@ -283,9 +285,9 @@
   });
 
   function downloadFile(name, content) {
-    var blob = new Blob([content], { type: 'text/plain' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url;
     a.download = name;
     document.body.appendChild(a);
@@ -296,7 +298,7 @@
 
   /* ── Utilities ─────────────────────────────────── */
   function escapeHtml(str) {
-    var div = document.createElement('div');
+    const div = document.createElement('div');
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
   }
