@@ -62,32 +62,41 @@ function cleanContent(text) {
   // 4. Remove blocks of base64 data (lines of 60+ pure base64 chars, 3+ consecutive lines)
   text = text.replace(/(^[A-Za-z0-9+/=]{60,}[ \t]*\r?\n){3,}/gm, '');
 
-  // 5. Remove <style>…</style> blocks (including partial / quoted-printable encoded)
-  text = text.replace(/<style[\s\S]*?<\/style>/gi, '');
+  // 5. Remove <style>…</style> blocks (including nested/malformed)
+  var prev;
+  do { prev = text; text = text.replace(/<style\b[\s\S]*?<\/style\s*>/gi, ''); } while (text !== prev);
 
-  // 6. Remove HTML comments  <!-- … -->
-  text = text.replace(/<!--[\s\S]*?-->/g, '');
+  // 5b. Remove <script>…</script> blocks
+  do { prev = text; text = text.replace(/<script\b[\s\S]*?<\/script\s*>/gi, ''); } while (text !== prev);
+
+  // 6. Remove HTML comments  <!-- … --> and <!-- … --!>
+  do { prev = text; text = text.replace(/<!--[\s\S]*?--!?\s*>/g, ''); } while (text !== prev);
 
   // 7. Strip all HTML tags  (opening, closing, self-closing)
   text = text.replace(/<\/?[a-zA-Z][^>]*\/?>/g, '');
 
-  // 7b. Remove stray HTML comment fragments  (leftover --> or <!--)
-  text = text.replace(/^[ \t]*-->[ \t]*$/gm, '');
-  text = text.replace(/^[ \t]*<!--[ \t]*$/gm, '');
+  // 7b. Remove stray HTML comment fragments  (leftover --> / --!> or <!--)
+  text = text.replace(/--!?\s*>/g, '');
+  text = text.replace(/<!--/g, '');
 
-  // 7c. Decode common HTML entities
+  // 7c. Decode common HTML entities (decode &amp; last to avoid double-unescaping)
   text = text.replace(/&nbsp;/gi, ' ');
-  text = text.replace(/&amp;/gi, '&');
   text = text.replace(/&lt;/gi, '<');
   text = text.replace(/&gt;/gi, '>');
   text = text.replace(/&quot;/gi, '"');
   text = text.replace(/&#39;/gi, "'");
   text = text.replace(/&#x?[0-9A-Fa-f]+;/g, '');
+  text = text.replace(/&amp;/gi, '&');
 
   // 8. Decode common quoted-printable artifacts  (=3D → =, =20 → space, soft line breaks)
   text = text.replace(/=\r?\n/g, '');                         // soft line breaks
   text = text.replace(/=([0-9A-Fa-f]{2})/g, function (_m, hex) {
-    return String.fromCharCode(parseInt(hex, 16));
+    var code = parseInt(hex, 16);
+    // Only decode printable ASCII (space 0x20 through tilde 0x7E)
+    if (code >= 0x20 && code <= 0x7E) {
+      return String.fromCharCode(code);
+    }
+    return '';  // strip non-printable
   });
 
   // 9. Remove lines that are only whitespace / non-printable after cleanup
