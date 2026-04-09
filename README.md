@@ -2,15 +2,14 @@
 
 **[🚀 Launch TxtSmaller](https://adminnooot.github.io/txtsmaller/)**
 
-Compress large text files (e.g. mbox exports) by replacing recurring patterns with short codes — optimized for AI readability.
+Clean and shrink large text files (e.g. mbox exports) by stripping noise, HTML, and email artifacts — optimized for AI readability.
 
 ## Features
 
 - **Upload** a `.txt` file directly in the browser
-- **Content cleaning** — automatically strips MIME boundaries, email-transport headers, base64 blobs, HTML tags, and quoted-printable artifacts
-- **Automatic pattern detection** — finds recurring email addresses, URLs, quoted lines, headers, and repeated phrases
-- **Short-code replacement** — replaces each pattern with a compact code like `%A%`, `%B%`, etc.
-- **Code dictionary** — a downloadable lookup table so any AI (or human) can decode the compressed file
+- **Content cleaning** — automatically strips MIME boundaries, email-transport headers, base64 blobs, HTML tags, style/script blocks, HTML comments, and quoted-printable artifacts
+- **Whitespace normalization** — removes blank lines and collapses excessive spacing
+- **HTML entity decoding** — converts `&amp;`, `&lt;`, `&nbsp;`, etc. back to plain text
 - **File splitting** — divide the output into up to 20 separate files
 - **Size & word stats** — see the weight and word count for each output file
 - **100% client-side** — all processing happens in your browser; no data leaves your machine
@@ -19,9 +18,9 @@ Compress large text files (e.g. mbox exports) by replacing recurring patterns wi
 
 1. Open `index.html` in a browser (or visit the GitHub Pages site)
 2. Drag-and-drop or browse for your `.txt` file
-3. Choose how many files to split the output into (1–20)
-4. Click **Compress & Optimize**
-5. Download the compressed file(s) and the code dictionary
+3. Wait for automatic cleaning to complete
+4. Choose how many files to split the output into (1–20)
+5. Download the cleaned file(s)
 
 ## Deploy to GitHub Pages
 
@@ -31,23 +30,23 @@ Compress large text files (e.g. mbox exports) by replacing recurring patterns wi
 
 ## How It Works
 
-The compressor scans for:
+The cleaner removes the following noise from your text:
 
-| Pattern | Example |
+| Noise type | What gets removed |
 |---|---|
-| Email addresses | `user@example.com` → `%A%` |
-| URLs | `https://example.com/path` → `%B%` |
-| Quoted lines | `> Original message follows` → `%C%` |
-| Email headers | `From: John Doe <john@ex.com>` → `%D%` |
-| Repeated phrases | Any 4–12 word phrase appearing 2+ times |
-
-Each replacement only happens when it produces a net size reduction (accounting for dictionary overhead).
+| MIME boundaries | `------=_Part_123--` and similar lines |
+| Email headers | `Content-Type:`, `Content-Transfer-Encoding:`, `MIME-Version:`, etc. |
+| Base64 data | Blocks of encoded binary data |
+| HTML markup | Tags, style blocks, script blocks, comments |
+| HTML entities | Decoded back to plain characters |
+| Quoted-printable | `=3D` → `=`, soft line breaks removed |
+| Blank lines | Collapsed to at most one blank line |
 
 ## Files
 
 ```
 index.html      – Main page
 style.css       – Styles
-compressor.js   – Compression engine
+compressor.js   – Cleaning engine
 app.js          – UI controller
 ```
