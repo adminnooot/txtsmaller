@@ -48,7 +48,7 @@ function countWords(text) {
  * Returns { cleaned, removedChars }.
  */
 function cleanContent(text) {
-  var original = text;
+  const original = text;
 
   // 1. Remove MIME boundary lines  (------=_NextPart…, --boundary--, etc.)
   text = text.replace(/^-{2,}[\w=_.]+(-{2})?[ \t]*$/gm, '');
@@ -63,11 +63,11 @@ function cleanContent(text) {
   text = text.replace(/(^[A-Za-z0-9+/=]{60,}[ \t]*\r?\n){3,}/gm, '');
 
   // 5. Remove <style>…</style> blocks (including nested/malformed)
-  var prev;
+  let prev;
   do { prev = text; text = text.replace(/<style\b[\s\S]*?<\/style\s*>/gi, ''); } while (text !== prev);
 
-  // 5b. Remove <script>…</script> blocks
-  do { prev = text; text = text.replace(/<script\b[\s\S]*?<\/script\s*>/gi, ''); } while (text !== prev);
+  // 5b. Remove <script>…</script> blocks (permissive closing tag)
+  do { prev = text; text = text.replace(/<script\b[\s\S]*?<\/\s*script[\s\S]*?>/gi, ''); } while (text !== prev);
 
   // 6. Remove HTML comments  <!-- … --> and <!-- … --!>
   do { prev = text; text = text.replace(/<!--[\s\S]*?--!?\s*>/g, ''); } while (text !== prev);
@@ -91,7 +91,7 @@ function cleanContent(text) {
   // 8. Decode common quoted-printable artifacts  (=3D → =, =20 → space, soft line breaks)
   text = text.replace(/=\r?\n/g, '');                         // soft line breaks
   text = text.replace(/=([0-9A-Fa-f]{2})/g, function (_m, hex) {
-    var code = parseInt(hex, 16);
+    const code = parseInt(hex, 16);
     // Only decode printable ASCII (space 0x20 through tilde 0x7E)
     if (code >= 0x20 && code <= 0x7E) {
       return String.fromCharCode(code);
