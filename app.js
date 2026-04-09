@@ -56,7 +56,7 @@
 
   function handleFile(file) {
     if (!file.name.match(/\.(txt|text)$/i)) {
-      alert('Please upload a .txt file.');
+      alert('Please upload a .txt or .text file.');
       return;
     }
 

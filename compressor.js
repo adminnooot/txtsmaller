@@ -148,7 +148,7 @@ function compressText(text) {
     if (savings <= 0) continue;
 
     // Escape special regex characters in pattern for safe replacement
-    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = pattern.replace(/[.*+?^${}()|\\[\]\\\\]/g, '\\$&');
     compressed = compressed.replace(new RegExp(escaped, 'g'), code);
 
     dictionary.push({ code, original: pattern, count: occurrences });
