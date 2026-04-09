@@ -1,10 +1,13 @@
 # 📄 TxtSmaller
 
+**[🚀 Launch TxtSmaller](https://adminnooot.github.io/txtsmaller/)**
+
 Compress large text files (e.g. mbox exports) by replacing recurring patterns with short codes — optimized for AI readability.
 
 ## Features
 
 - **Upload** a `.txt` file directly in the browser
+- **Content cleaning** — automatically strips MIME boundaries, email-transport headers, base64 blobs, HTML tags, and quoted-printable artifacts
 - **Automatic pattern detection** — finds recurring email addresses, URLs, quoted lines, headers, and repeated phrases
 - **Short-code replacement** — replaces each pattern with a compact code like `%A%`, `%B%`, etc.
 - **Code dictionary** — a downloadable lookup table so any AI (or human) can decode the compressed file

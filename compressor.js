@@ -35,6 +35,82 @@ function countWords(text) {
   return trimmed.split(/\s+/).length;
 }
 
+/* ---------- content cleaning ---------- */
+
+/**
+ * Remove non-essential noise commonly found in mbox / email exports:
+ *   • MIME boundary lines
+ *   • MIME headers (Content-Type, Content-Transfer-Encoding, charset, …)
+ *   • Base64 encoded blobs
+ *   • HTML tags, style/comment blocks, quoted-printable artifacts
+ *   • Blank-line runs collapsed to a single blank line
+ *
+ * Returns { cleaned, removedChars }.
+ */
+function cleanContent(text) {
+  const original = text;
+
+  // 1. Remove MIME boundary lines  (------=_NextPart…, --boundary--, etc.)
+  text = text.replace(/^-{2,}[\w=_.]+(-{2})?[ \t]*$/gm, '');
+
+  // 2. Remove common MIME / email-transport headers (multiline, may have continuation lines)
+  text = text.replace(/^(Content-Type|Content-Transfer-Encoding|Content-Disposition|MIME-Version|Content-ID|X-Attachment-Id):.*(?:\r?\n[ \t]+.*)*/gm, '');
+
+  // 3. Remove standalone charset / boundary / name params that leaked onto their own lines
+  text = text.replace(/^\s*(charset|boundary|name|filename)\s*=\s*"[^"]*".*$/gm, '');
+
+  // 4. Remove blocks of base64 data (lines of 60+ pure base64 chars, 3+ consecutive lines)
+  text = text.replace(/(^[A-Za-z0-9+/=]{60,}[ \t]*\r?\n){3,}/gm, '');
+
+  // 5. Remove <style>…</style> blocks (including nested/malformed)
+  let prev;
+  do { prev = text; text = text.replace(/<style\b[\s\S]*?<\/style\s*>/gi, ''); } while (text !== prev);
+
+  // 5b. Remove <script>…</script> blocks (permissive closing tag)
+  do { prev = text; text = text.replace(/<script\b[\s\S]*?<\/\s*script[\s\S]*?>/gi, ''); } while (text !== prev);
+
+  // 6. Remove HTML comments  <!-- … --> and <!-- … --!>
+  do { prev = text; text = text.replace(/<!--[\s\S]*?--!?\s*>/g, ''); } while (text !== prev);
+
+  // 7. Strip all HTML tags  (opening, closing, self-closing)
+  text = text.replace(/<\/?[a-zA-Z][^>]*\/?>/g, '');
+
+  // 7b. Remove stray HTML comment fragments  (leftover --> / --!> or <!--)
+  text = text.replace(/--!?\s*>/g, '');
+  text = text.replace(/<!--/g, '');
+
+  // 7c. Decode common HTML entities (decode &amp; last to avoid double-unescaping)
+  text = text.replace(/&nbsp;/gi, ' ');
+  text = text.replace(/&lt;/gi, '<');
+  text = text.replace(/&gt;/gi, '>');
+  text = text.replace(/&quot;/gi, '"');
+  text = text.replace(/&#39;/gi, "'");
+  text = text.replace(/&#x?[0-9A-Fa-f]+;/g, '');
+  text = text.replace(/&amp;/gi, '&');
+
+  // 8. Decode common quoted-printable artifacts  (=3D → =, =20 → space, soft line breaks)
+  text = text.replace(/=\r?\n/g, '');                         // soft line breaks
+  text = text.replace(/=([0-9A-Fa-f]{2})/g, function (_m, hex) {
+    const code = parseInt(hex, 16);
+    // Only decode printable ASCII (space 0x20 through tilde 0x7E)
+    if (code >= 0x20 && code <= 0x7E) {
+      return String.fromCharCode(code);
+    }
+    return '';  // strip non-printable
+  });
+
+  // 9. Remove lines that are only whitespace / non-printable after cleanup
+  text = text.replace(/^[ \t\r]*$/gm, '');
+
+  // 10. Collapse runs of 3+ blank lines into one blank line
+  text = text.replace(/(\r?\n){3,}/g, '\n\n');
+
+  text = text.trim() + '\n';
+
+  var removedChars = original.length - text.length;
+  return { cleaned: text, removedChars: Math.max(0, removedChars) };
+}
+
 /* ---------- pattern extraction ---------- */
 
 /**
@@ -129,10 +205,14 @@ function extractPatterns(text) {
  * Returns { compressed, dictionary, stats }.
  */
 function compressText(text) {
-  const patterns = extractPatterns(text);
+  // Clean noise before compression
+  const cleanResult = cleanContent(text);
+  const cleanedText = cleanResult.cleaned;
+
+  const patterns = extractPatterns(cleanedText);
 
   const dictionary = []; // { code, original }
-  let compressed = text;
+  let compressed = cleanedText;
   let codeIndex = 0;
 
   for (const { pattern } of patterns) {
@@ -172,6 +252,7 @@ function compressText(text) {
       savings: originalSize - (compressedSize + dictSize),
       savingsPercent: originalSize > 0 ? (((originalSize - (compressedSize + dictSize)) / originalSize) * 100).toFixed(1) : '0.0',
       codesUsed: dictionary.length,
+      removedChars: cleanResult.removedChars,
     }
   };
 }

@@ -21,6 +21,7 @@
   const statCompressed = document.getElementById('compressed-size');
   const statSavings    = document.getElementById('savings');
   const statCodes      = document.getElementById('codes-used');
+  const statNoise      = document.getElementById('noise-removed');
   const filesGrid      = document.getElementById('files-grid');
   const downloadDict   = document.getElementById('download-dict-btn');
   const downloadAll    = document.getElementById('download-all-btn');
@@ -125,6 +126,14 @@
     statOriginal.textContent   = formatBytes(s.originalSize);
     statCompressed.textContent = formatBytes(s.compressedSize);
     statCodes.textContent      = s.codesUsed;
+
+    if (s.removedChars > 0) {
+      statNoise.textContent = formatBytes(s.removedChars);
+      statNoise.style.color = '#4ade80';
+    } else {
+      statNoise.textContent = 'None';
+      statNoise.style.color = '#94a3b8';
+    }
 
     if (s.savings > 0) {
       statSavings.textContent = formatBytes(s.savings) + ' (' + s.savingsPercent + '%)';
