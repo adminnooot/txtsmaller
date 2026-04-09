@@ -13,9 +13,9 @@
       <p class="subtitle">Compress text files by replacing recurring patterns with short codes</p>
     </header>
 
-    <!-- Step 1: Upload -->
+    <!-- Step 1: Upload & Compress -->
     <section id="upload-section" class="card">
-      <h2>1. Upload Your Text File</h2>
+      <h2>Step 1: Upload & Compress</h2>
       <div class="upload-area" id="upload-area">
         <div class="upload-icon">📁</div>
         <p>Drag & drop your <strong>.txt</strong> file here, or click to browse</p>
@@ -26,24 +26,22 @@
         <span id="file-size"></span>
         <button id="remove-file" class="btn-icon" title="Remove file">✕</button>
       </div>
-    </section>
-
-    <!-- Step 2: Options -->
-    <section id="options-section" class="card hidden">
-      <h2>2. Options</h2>
-      <div class="option-group">
-        <label for="split-count">Split output into how many files?</label>
-        <div class="split-control">
-          <input type="range" id="split-count" min="1" max="20" value="1">
-          <span id="split-value" class="split-value">1 file</span>
+      <!-- Progress bar shown during compression -->
+      <div id="progress-section" class="progress-section hidden">
+        <div class="progress-status">
+          <span id="progress-stage">Preparing…</span>
+          <span id="progress-percent">0%</span>
         </div>
+        <div class="progress-bar-track">
+          <div id="progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+        </div>
+        <p id="progress-detail" class="progress-detail">Reading file…</p>
       </div>
-      <button id="compress-btn" class="btn-primary">🔧 Compress & Optimize</button>
     </section>
 
-    <!-- Step 3: Results -->
-    <section id="results-section" class="card hidden">
-      <h2>3. Results</h2>
+    <!-- Step 2: Split & Download (shown after compression) -->
+    <section id="split-section" class="card hidden">
+      <h2>Step 2: Split & Download</h2>
 
       <div class="stats-bar">
         <div class="stat">
@@ -68,12 +66,25 @@
         </div>
       </div>
 
+      <div class="option-group">
+        <label for="split-count">How many files do you want to split into?</label>
+        <div class="split-control">
+          <input type="range" id="split-count" min="1" max="20" value="1">
+          <span id="split-value" class="split-value">1 file</span>
+        </div>
+        <div id="split-preview" class="split-preview">
+          <p>Each file: <strong id="split-each-size">–</strong> · <strong id="split-each-words">–</strong> words</p>
+        </div>
+      </div>
+
       <div class="download-section">
         <button id="download-dict-btn" class="btn-secondary">📖 Download Code Dictionary</button>
         <button id="download-all-btn" class="btn-primary">⬇️ Download All Files (.zip)</button>
       </div>
 
       <div id="files-grid" class="files-grid"></div>
+
+      <button id="start-over-btn" class="btn-secondary" style="margin-top:1rem;width:100%">🔄 Start Over</button>
     </section>
 
     <footer>

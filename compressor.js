@@ -4,6 +4,8 @@
  * Replaces recurring patterns (email addresses, quoted blocks, URLs,
  * repeated long phrases) with short codes and builds a dictionary
  * so an AI (or human) can decode the file.
+ *
+ * Supports async compression with progress callbacks for large files.
  */
 
 /* ---------- helpers ---------- */
@@ -35,51 +37,68 @@ function countWords(text) {
   return trimmed.split(/\s+/).length;
 }
 
-/* ---------- content cleaning ---------- */
+/**
+ * Yield control to the browser so the UI can update.
+ * Used inside async compression to avoid freezing.
+ */
+function yieldToUI() {
+  return new Promise(function (resolve) { setTimeout(resolve, 0); });
+}
+
+/* ---------- content cleaning (chunked) ---------- */
 
 /**
- * Remove non-essential noise commonly found in mbox / email exports:
- *   • MIME boundary lines
- *   • MIME headers (Content-Type, Content-Transfer-Encoding, charset, …)
- *   • Base64 encoded blobs
- *   • HTML tags, style/comment blocks, quoted-printable artifacts
- *   • Blank-line runs collapsed to a single blank line
- *
+ * Clean content in chunks for large files.
+ * onProgress(stage, fraction) is called with 0..1 progress.
  * Returns { cleaned, removedChars }.
  */
-function cleanContent(text) {
+async function cleanContentAsync(text, onProgress) {
   const original = text;
+  const CHUNK = 500000; // 500 KB per step for regex passes
+  const steps = 13; // total regex-pass steps
+  let step = 0;
 
-  // 1. Remove MIME boundary lines  (------=_NextPart…, --boundary--, etc.)
+  function report() {
+    step++;
+    if (onProgress) onProgress('Cleaning noise…', step / steps);
+  }
+
+  // 1. Remove MIME boundary lines
   text = text.replace(/^-{2,}[\w=_.]+(-{2})?[ \t]*$/gm, '');
+  report(); await yieldToUI();
 
-  // 2. Remove common MIME / email-transport headers (multiline, may have continuation lines)
+  // 2. Remove MIME / email-transport headers
   text = text.replace(/^(Content-Type|Content-Transfer-Encoding|Content-Disposition|MIME-Version|Content-ID|X-Attachment-Id):.*(?:\r?\n[ \t]+.*)*/gm, '');
+  report(); await yieldToUI();
 
-  // 3. Remove standalone charset / boundary / name params that leaked onto their own lines
+  // 3. Remove standalone charset / boundary / name params
   text = text.replace(/^\s*(charset|boundary|name|filename)\s*=\s*"[^"]*".*$/gm, '');
+  report(); await yieldToUI();
 
-  // 4. Remove blocks of base64 data (lines of 60+ pure base64 chars, 3+ consecutive lines)
+  // 4. Remove blocks of base64 data
   text = text.replace(/(^[A-Za-z0-9+/=]{60,}[ \t]*\r?\n){3,}/gm, '');
+  report(); await yieldToUI();
 
-  // 5. Remove <style>…</style> blocks (including nested/malformed)
+  // 5. Remove <style>…</style> blocks
   let prev;
   do { prev = text; text = text.replace(/<style\b[\s\S]*?<\/style\s*>/gi, ''); } while (text !== prev);
+  report(); await yieldToUI();
 
-  // 5b. Remove <script>…</script> blocks (permissive closing tag)
+  // 5b. Remove <script>…</script> blocks
   do { prev = text; text = text.replace(/<script\b[\s\S]*?<\/\s*script[\s\S]*?>/gi, ''); } while (text !== prev);
+  report(); await yieldToUI();
 
-  // 6. Remove HTML comments  <!-- … --> and <!-- … --!>
+  // 6. Remove HTML comments
   do { prev = text; text = text.replace(/<!--[\s\S]*?--!?\s*>/g, ''); } while (text !== prev);
+  report(); await yieldToUI();
 
-  // 7. Strip all HTML tags  (opening, closing, self-closing)
+  // 7. Strip all HTML tags
   text = text.replace(/<\/?[a-zA-Z][^>]*\/?>/g, '');
-
-  // 7b. Remove stray HTML comment fragments  (leftover --> / --!> or <!--)
   text = text.replace(/--!?\s*>/g, '');
   text = text.replace(/<!--/g, '');
+  report(); await yieldToUI();
 
-  // 7c. Decode common HTML entities (decode &amp; last to avoid double-unescaping)
+  // 7c. Decode common HTML entities
   text = text.replace(/&nbsp;/gi, ' ');
   text = text.replace(/&lt;/gi, '<');
   text = text.replace(/&gt;/gi, '>');
@@ -87,38 +106,44 @@ function cleanContent(text) {
   text = text.replace(/&#39;/gi, "'");
   text = text.replace(/&#x?[0-9A-Fa-f]+;/g, '');
   text = text.replace(/&amp;/gi, '&');
+  report(); await yieldToUI();
 
-  // 8. Decode common quoted-printable artifacts  (=3D → =, =20 → space, soft line breaks)
-  text = text.replace(/=\r?\n/g, '');                         // soft line breaks
+  // 8. Decode quoted-printable artifacts
+  text = text.replace(/=\r?\n/g, '');
   text = text.replace(/=([0-9A-Fa-f]{2})/g, function (_m, hex) {
-    const code = parseInt(hex, 16);
-    // Only decode printable ASCII (space 0x20 through tilde 0x7E)
-    if (code >= 0x20 && code <= 0x7E) {
-      return String.fromCharCode(code);
-    }
-    return '';  // strip non-printable
+    var code = parseInt(hex, 16);
+    if (code >= 0x20 && code <= 0x7E) return String.fromCharCode(code);
+    return '';
   });
+  report(); await yieldToUI();
 
-  // 9. Remove lines that are only whitespace / non-printable after cleanup
+  // 9. Remove whitespace-only lines
   text = text.replace(/^[ \t\r]*$/gm, '');
+  report(); await yieldToUI();
 
-  // 10. Collapse runs of 3+ blank lines into one blank line
+  // 10. Collapse blank lines
   text = text.replace(/(\r?\n){3,}/g, '\n\n');
+  report(); await yieldToUI();
 
   text = text.trim() + '\n';
+  report();
 
   var removedChars = original.length - text.length;
   return { cleaned: text, removedChars: Math.max(0, removedChars) };
 }
 
-/* ---------- pattern extraction ---------- */
+/* ---------- pattern extraction (chunked for n-grams) ---------- */
 
 /**
  * Extract recurring patterns from the text, ordered by total savings.
+ * Yields to UI periodically for large texts.
  * Returns an array of { pattern: string, count: number }.
  */
-function extractPatterns(text) {
-  const found = new Map(); // pattern -> count
+async function extractPatternsAsync(text, onProgress) {
+  const found = new Map();
+
+  if (onProgress) onProgress('Finding emails & URLs…', 0);
+  await yieldToUI();
 
   // 1. Email addresses
   const emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
@@ -132,7 +157,10 @@ function extractPatterns(text) {
     found.set(m[0], (found.get(m[0]) || 0) + 1);
   }
 
-  // 3. Quoted lines (lines starting with "> " that repeat)
+  if (onProgress) onProgress('Finding quoted lines…', 0.15);
+  await yieldToUI();
+
+  // 3. Quoted lines
   const quotedLineRe = /^>.*$/gm;
   for (const m of text.matchAll(quotedLineRe)) {
     const line = m[0].trim();
@@ -141,17 +169,14 @@ function extractPatterns(text) {
     }
   }
 
+  if (onProgress) onProgress('Finding header patterns…', 0.25);
+  await yieldToUI();
+
   // 4. Common email header patterns
   const headerPatterns = [
-    /From:.*$/gm,
-    /To:.*$/gm,
-    /Subject:.*$/gm,
-    /Date:.*$/gm,
-    /Sent:.*$/gm,
-    /Cc:.*$/gm,
-    /Content-Type:.*$/gm,
-    /MIME-Version:.*$/gm,
-    /Message-ID:.*$/gm,
+    /From:.*$/gm, /To:.*$/gm, /Subject:.*$/gm, /Date:.*$/gm,
+    /Sent:.*$/gm, /Cc:.*$/gm, /Content-Type:.*$/gm,
+    /MIME-Version:.*$/gm, /Message-ID:.*$/gm,
   ];
   for (const re of headerPatterns) {
     for (const m of text.matchAll(re)) {
@@ -162,8 +187,14 @@ function extractPatterns(text) {
     }
   }
 
-  // 5. Repeated phrases (sliding window over words for n-grams, n=4..12)
+  // 5. Repeated phrases (n-grams) — chunked to avoid UI freeze
+  if (onProgress) onProgress('Finding repeated phrases…', 0.35);
+  await yieldToUI();
+
   const words = text.split(/\s+/);
+  const totalNgramSteps = 9; // n = 4..12
+  let ngramStep = 0;
+
   for (let n = 4; n <= 12; n++) {
     const ngramCounts = new Map();
     for (let i = 0; i <= words.length - n; i++) {
@@ -171,16 +202,25 @@ function extractPatterns(text) {
       if (phrase.length >= 20) {
         ngramCounts.set(phrase, (ngramCounts.get(phrase) || 0) + 1);
       }
+      // Yield every 50000 iterations to keep UI responsive
+      if (i % 50000 === 0 && i > 0) {
+        await yieldToUI();
+      }
     }
     for (const [phrase, count] of ngramCounts) {
       if (count >= 2) {
-        // Only add if it provides savings
         found.set(phrase, Math.max(found.get(phrase) || 0, count));
       }
     }
+    ngramStep++;
+    if (onProgress) onProgress('Finding repeated phrases… (n=' + n + ')', 0.35 + 0.55 * (ngramStep / totalNgramSteps));
+    await yieldToUI();
   }
 
-  // Filter: keep only patterns that appear at least 2 times
+  if (onProgress) onProgress('Sorting patterns…', 0.95);
+  await yieldToUI();
+
+  // Filter and sort
   const patterns = [];
   for (const [pattern, count] of found) {
     if (count >= 2) {
@@ -188,67 +228,89 @@ function extractPatterns(text) {
     }
   }
 
-  // Sort by total characters saved (descending) — prioritize biggest wins
-  patterns.sort((a, b) => {
-    const savingsA = a.pattern.length * a.count;
-    const savingsB = b.pattern.length * b.count;
-    return savingsB - savingsA;
+  patterns.sort(function (a, b) {
+    return (b.pattern.length * b.count) - (a.pattern.length * a.count);
   });
 
+  if (onProgress) onProgress('Patterns ready', 1);
   return patterns;
 }
 
-/* ---------- compression ---------- */
+/* ---------- compression (async with progress) ---------- */
 
 /**
- * Compress the given text.
- * Returns { compressed, dictionary, stats }.
+ * Compress the given text asynchronously with progress updates.
+ * onProgress(stage, percent, detail) is called throughout.
+ * Returns { compressed, dictionary, dictionaryText, stats }.
  */
-function compressText(text) {
-  // Clean noise before compression
-  const cleanResult = cleanContent(text);
+async function compressTextAsync(text, onProgress) {
+  if (!onProgress) onProgress = function () {};
+
+  // Phase 1: Clean noise (0–30%)
+  onProgress('Cleaning…', 0, 'Removing noise and email artifacts…');
+  const cleanResult = await cleanContentAsync(text, function (stage, frac) {
+    onProgress(stage, Math.round(frac * 30), 'Processing ' + formatBytes(text.length) + ' of text…');
+  });
   const cleanedText = cleanResult.cleaned;
 
-  const patterns = extractPatterns(cleanedText);
+  // Phase 2: Extract patterns (30–70%)
+  onProgress('Analyzing…', 30, 'Scanning for recurring patterns…');
+  const patterns = await extractPatternsAsync(cleanedText, function (stage, frac) {
+    onProgress(stage, 30 + Math.round(frac * 40), stage);
+  });
 
-  const dictionary = []; // { code, original }
+  // Phase 3: Replace patterns (70–95%)
+  onProgress('Compressing…', 70, 'Replacing ' + patterns.length + ' patterns with codes…');
+  await yieldToUI();
+
+  const dictionary = [];
   let compressed = cleanedText;
   let codeIndex = 0;
+  const batchSize = 20; // yield after every N replacements
 
-  for (const { pattern } of patterns) {
-    // Check if the pattern still exists in the (progressively replaced) text
-    // and that replacing it actually saves space
+  for (let pi = 0; pi < patterns.length; pi++) {
+    const pattern = patterns[pi].pattern;
     const occurrences = compressed.split(pattern).length - 1;
     if (occurrences < 2) continue;
 
     const code = generateCode(codeIndex);
-    // Savings = (pattern.length * occurrences) - (code.length * occurrences + dictionary entry overhead)
-    const dictEntryOverhead = code.length + 3 + pattern.length; // "code = pattern\n"
+    const dictEntryOverhead = code.length + 3 + pattern.length;
     const savings = (pattern.length * occurrences) - (code.length * occurrences + dictEntryOverhead);
     if (savings <= 0) continue;
 
-    // Escape special regex characters in pattern for safe replacement
     const escaped = pattern.replace(/[.*+?^${}()|\\[\]\\\\]/g, '\\$&');
     compressed = compressed.replace(new RegExp(escaped, 'g'), code);
 
     dictionary.push({ code, original: pattern, count: occurrences });
     codeIndex++;
+
+    if (pi % batchSize === 0) {
+      const pct = 70 + Math.round((pi / patterns.length) * 25);
+      onProgress('Compressing…', pct, 'Applied ' + codeIndex + ' codes so far…');
+      await yieldToUI();
+    }
   }
+
+  // Phase 4: Finalize (95–100%)
+  onProgress('Finalizing…', 95, 'Calculating statistics…');
+  await yieldToUI();
 
   const originalSize = new Blob([text]).size;
   const compressedSize = new Blob([compressed]).size;
   const dictText = buildDictionaryText(dictionary);
   const dictSize = new Blob([dictText]).size;
 
+  onProgress('Done!', 100, 'Compression complete');
+
   return {
-    compressed,
-    dictionary,
+    compressed: compressed,
+    dictionary: dictionary,
     dictionaryText: dictText,
     stats: {
-      originalSize,
+      originalSize: originalSize,
       compressedSize: compressedSize + dictSize,
       compressedBodySize: compressedSize,
-      dictSize,
+      dictSize: dictSize,
       savings: originalSize - (compressedSize + dictSize),
       savingsPercent: originalSize > 0 ? (((originalSize - (compressedSize + dictSize)) / originalSize) * 100).toFixed(1) : '0.0',
       codesUsed: dictionary.length,
