@@ -171,7 +171,8 @@
     if (!currentResult || !currentFiles) return;
 
     if (typeof JSZip === 'undefined') {
-      // Fallback: download dictionary + first file individually
+      // Fallback: download files individually
+      alert('Zip packaging is unavailable. Files will be downloaded individually.');
       downloadFile('code_dictionary.txt', currentResult.dictionaryText);
       currentFiles.forEach((f) => downloadFile(f.name, f.content));
       return;
