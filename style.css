@@ -1,0 +1,256 @@
+/* ── Reset & Base ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  font-size: 2.5rem;
+  color: #38bdf8;
+  margin-bottom: 0.25rem;
+}
+
+.subtitle {
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+/* ── Cards ───────────────────────────────────────────── */
+.card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #334155;
+  transition: opacity 0.3s;
+}
+
+.card h2 {
+  color: #38bdf8;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.hidden { display: none !important; }
+
+/* ── Upload Area ─────────────────────────────────────── */
+.upload-area {
+  border: 2px dashed #475569;
+  border-radius: 10px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.upload-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #0f172a;
+  border-radius: 8px;
+}
+
+.file-info #file-name {
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.file-info #file-size {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 1.2rem;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+/* ── Options ─────────────────────────────────────────── */
+.option-group {
+  margin-bottom: 1.5rem;
+}
+
+.option-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.split-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.split-control input[type="range"] {
+  flex: 1;
+  accent-color: #38bdf8;
+  height: 6px;
+}
+
+.split-value {
+  min-width: 60px;
+  text-align: center;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+.btn-primary, .btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-primary {
+  background: #38bdf8;
+  color: #0f172a;
+}
+
+.btn-primary:hover { background: #7dd3fc; }
+.btn-primary:active { transform: scale(0.97); }
+
+.btn-secondary {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.btn-secondary:hover { background: #475569; }
+
+/* ── Stats Bar ───────────────────────────────────────── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat {
+  background: #0f172a;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+/* ── Download Section ────────────────────────────────── */
+.download-section {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Files Grid ──────────────────────────────────────── */
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.file-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+
+.file-card:hover {
+  border-color: #38bdf8;
+}
+
+.file-card h3 {
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  margin-bottom: 0.75rem;
+  word-break: break-all;
+}
+
+.file-card .meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-bottom: 0.75rem;
+}
+
+.file-card .meta strong {
+  color: #cbd5e1;
+}
+
+.file-card button {
+  width: 100%;
+}
+
+/* ── Footer ──────────────────────────────────────────── */
+footer {
+  text-align: center;
+  margin-top: 2rem;
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 600px) {
+  header h1 { font-size: 1.8rem; }
+  .card { padding: 1rem 1.25rem; }
+  .upload-area { padding: 2rem 1rem; }
+  .stats-bar { grid-template-columns: 1fr 1fr; }
+  .files-grid { grid-template-columns: 1fr; }
+}
