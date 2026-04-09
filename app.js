@@ -30,15 +30,13 @@
   const statOriginal    = document.getElementById('original-size');
   const statCompressed  = document.getElementById('compressed-size');
   const statSavings     = document.getElementById('savings');
-  const statCodes       = document.getElementById('codes-used');
   const statNoise       = document.getElementById('noise-removed');
   const filesGrid       = document.getElementById('files-grid');
-  const downloadDict    = document.getElementById('download-dict-btn');
   const downloadAll     = document.getElementById('download-all-btn');
 
   /* ── State ─────────────────────────────────────── */
   let rawText = null;
-  let currentResult = null; // { compressed, dictionary, dictionaryText, stats }
+  let currentResult = null; // { compressed, stats }
   let currentFiles  = null; // [{ name, content, size, words }]
   let compressing   = false;
 
@@ -200,7 +198,6 @@
 
     statOriginal.textContent   = formatBytes(s.originalSize);
     statCompressed.textContent = formatBytes(s.compressedSize);
-    statCodes.textContent      = s.codesUsed;
 
     if (s.removedChars > 0) {
       statNoise.textContent = formatBytes(s.removedChars);
@@ -217,9 +214,6 @@
       statSavings.textContent = 'No savings (file may already be minimal)';
       statSavings.style.color = '#fbbf24';
     }
-
-    // Show/hide dictionary button
-    downloadDict.style.display = s.codesUsed > 0 ? '' : 'none';
 
     renderFileCards();
   }
@@ -250,27 +244,16 @@
   }
 
   /* ── Downloads ─────────────────────────────────── */
-  downloadDict.addEventListener('click', function () {
-    if (!currentResult) return;
-    downloadFile('code_dictionary.txt', currentResult.dictionaryText);
-  });
-
   downloadAll.addEventListener('click', async function () {
     if (!currentResult || !currentFiles) return;
 
     if (typeof JSZip === 'undefined') {
       alert('Zip packaging is unavailable. Files will be downloaded individually.');
-      if (currentResult.stats.codesUsed > 0) {
-        downloadFile('code_dictionary.txt', currentResult.dictionaryText);
-      }
       currentFiles.forEach(function (f) { downloadFile(f.name, f.content); });
       return;
     }
 
     const zip = new JSZip();
-    if (currentResult.stats.codesUsed > 0) {
-      zip.file('code_dictionary.txt', currentResult.dictionaryText);
-    }
     currentFiles.forEach(function (f) { zip.file(f.name, f.content); });
 
     const blob = await zip.generateAsync({ type: 'blob' });
